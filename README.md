@@ -1,8 +1,8 @@
 # Pixle
 
-A daily image-recognition puzzle. A "corrupted" image appears on a retro terminal as a handful of 1-bit
-blocks. You get five guesses; every wrong guess makes the terminal run another **enhancement pass**
-(more pixels, more colours) until the original is fully restored.
+A daily image-recognition puzzle played on an old computer. After it boots, a very low-resolution
+image appears on the left of the screen and a terminal on the right. You get five guesses; every wrong
+guess makes the computer **enhance** the image to a slightly higher resolution.
 
 Built with Next.js (App Router) + TypeScript, `sharp` for image processing and SQLite (Node's built-in
 driver) for puzzle data.
@@ -32,6 +32,21 @@ other image.
 | `/stats` | Player statistics |
 | `/admin` | Admin dashboard (password protected) |
 
+### Test it on a real URL (Cloudflare tunnel)
+
+With the site running, open a second terminal:
+
+```bash
+npm run tunnel
+```
+
+`cloudflared` prints a temporary `https://<random-words>.trycloudflare.com` address. Anyone with that
+link can play while your laptop is on and both terminals stay open; closing either one takes the site
+offline, and the address changes every time you start the tunnel. The tunnel points at port 3000 (the
+default for both `npm run dev` and `npm start`). For a fair test of speed use the production build
+(`npm run build`, then `npm start`). The link is public, so the admin password is all that protects
+`/admin` while it is up.
+
 ## 2. Where to place new images
 
 Drop JPG / JPEG / PNG / WEBP files into the content library:
@@ -50,7 +65,7 @@ For each new image Pixle will:
 1. check that it is a real, supported image,
 2. hash the file — an image whose content is already registered is skipped and reported as a duplicate,
 3. give it a puzzle ID,
-4. render the five stages into `storage/pixle/processed/<id>/` and a thumbnail into
+4. render the five low-resolution stages into `storage/pixle/processed/<id>/` and a thumbnail into
    `storage/pixle/thumbnails/` (your original file is never modified),
 5. register it as a **draft**. Nothing is ever published automatically.
 
@@ -127,29 +142,32 @@ Edit `pixle.config.json` in the project root. Changes apply on the next request 
   "pixelation": {
     "outputSize": 960,
     "stages": [
-      { "blocks": 14, "levels": 2, "mono": true },
-      { "blocks": 22, "levels": 2, "mono": false },
-      { "blocks": 36, "levels": 3, "mono": false },
-      { "blocks": 80, "levels": 4, "mono": false }
+      { "blocks": 20 },
+      { "blocks": 32 },
+      { "blocks": 56 },
+      { "blocks": 110 },
+      { "blocks": 480 }
     ]
   }
 }
 ```
 
 - `points` — score for solving on guess 1–5. `hintPenalty` is subtracted if the hint was used (never below 0).
-- `stages` — the four enhancement passes before the original (stage 5). `blocks` is the number of
-  pixels along the image's longer side, `levels` the colour levels per channel after dithering
-  (2 = 8 colours), `mono` renders the pass in pure 1-bit.
+- `stages` — one entry per guess. `blocks` is the resolution of that stage: the number of pixels along
+  the image's longer side. Stage 1 is `20` pixels wide, and the last stage (`480`) is clear but not
+  full quality. Raise the numbers to make the game easier, lower them to make it harder. The untouched
+  original is only shown after the game is over.
+- `outputSize` — the size (longer side, in pixels) of that final original.
 - `launchDate` — the date of puzzle #1 (`"YYYY-MM-DD"`). `null` uses the first scheduled date.
 - After changing pixelation, press **Rescan folder** in the dashboard (or restart) and every image is
   re-rendered.
-- A single image can override the `blocks` values on its admin page ("Pixel grid per pass").
+- A single image can override the `blocks` values on its admin page ("Resolution per stage").
 
 ## How the game works
 
-- Five guesses, five stages. Stage 1 is shown before the first guess; each wrong guess reveals the next
-  stage, so the fifth and final guess is made on the fully restored image. After a fifth miss the
-  answer is shown.
+- Five guesses, five stages. Stage 1 is shown before the first guess and each wrong guess reveals the
+  next, slightly sharper stage. The fifth guess is made on the clearest stage (about 480 pixels wide).
+  The original image and the answer are revealed when the game ends.
 - The hint is optional, costs points, never costs a guess, and stays visible once revealed.
 - Repeating a guess you already made is not counted.
 - Progress is stored on the server against an anonymous player ID (an httpOnly cookie), so refreshing

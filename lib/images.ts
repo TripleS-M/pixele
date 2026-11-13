@@ -7,10 +7,10 @@ import { MAX_GUESSES, PROCESSED_DIR, THUMBS_DIR, getConfig, type StageConfig } f
 export const SUPPORTED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 
-// 4x4 Bayer matrix for ordered dithering.
+// 4x4 Bayer matrix for the optional ordered-dither effect.
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
-/** The effective per-stage settings for an asset (global config + optional per-image block override). */
+/** The effective per-stage settings for an asset (global config + optional per-image resolution override). */
 export function effectiveStages(blocksOverride: number[] | null): StageConfig[] {
   const { stages } = getConfig().pixelation;
   return stages.map((s, i) => ({
@@ -21,7 +21,7 @@ export function effectiveStages(blocksOverride: number[] | null): StageConfig[] 
 
 /** Changes whenever the pixelation settings that apply to an asset change -> triggers reprocessing. */
 export function stageSignature(blocksOverride: number[] | null): string {
-  const payload = JSON.stringify([getConfig().pixelation.outputSize, effectiveStages(blocksOverride)]);
+  const payload = JSON.stringify(['v2', getConfig().pixelation.outputSize, effectiveStages(blocksOverride)]);
   return crypto.createHash('sha1').update(payload).digest('hex').slice(0, 12);
 }
 
@@ -33,7 +33,7 @@ export async function validateImage(input: string | Buffer): Promise<void> {
   }
 }
 
-/** Quantises raw RGB pixels in place with ordered dithering. */
+/** Optional effect (off by default): quantises raw RGB pixels in place with ordered dithering. */
 function dither(data: Buffer, width: number, height: number, stage: StageConfig) {
   const steps = Math.max(1, stage.levels - 1);
   for (let y = 0; y < height; y++) {
@@ -54,20 +54,24 @@ function dither(data: Buffer, width: number, height: number, stage: StageConfig)
   }
 }
 
+/** Stages 1..5 are the low-resolution versions; anything above is the original. */
 export const stagePath = (id: string, stage: number) =>
-  path.join(PROCESSED_DIR, id, stage >= MAX_GUESSES ? `stage-${MAX_GUESSES}.webp` : `stage-${stage}.png`);
+  path.join(PROCESSED_DIR, id, stage > MAX_GUESSES ? 'original.webp' : `stage-${stage}.png`);
 export const thumbPath = (id: string) => path.join(THUMBS_DIR, `${id}.webp`);
 
 /**
  * Generates everything the game needs from one original image:
- *   stage-1..4.png  low-resolution, dithered, scaled back up with nearest-neighbour
- *   stage-5.webp    the original (resized for the web)
+ *   stage-1..5.png  the image shrunk to a low resolution (each stage a little higher).
+ *                   They are stored at that tiny size; the browser scales them back
+ *                   up with nearest-neighbour, which is what makes the pixels visible.
+ *   original.webp   the full image, only ever served once a game is over
  *   thumbnail       for the admin dashboard
  * The original file in the library is never modified.
  */
 export async function processImage(id: string, sourcePath: string, blocksOverride: number[] | null) {
   const { outputSize } = getConfig().pixelation;
   const dir = path.join(PROCESSED_DIR, id);
+  fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(THUMBS_DIR, { recursive: true });
 
@@ -84,20 +88,17 @@ export async function processImage(id: string, sourcePath: string, blocksOverrid
   for (let n = 0; n < stages.length; n++) {
     const stage = stages[n];
     const blocks = Math.min(stage.blocks, longSide);
-    // Shrink keeping the aspect ratio...
+    // Shrink, keeping the aspect ratio.
     const bw = Math.max(1, Math.round((width * blocks) / longSide));
     const bh = Math.max(1, Math.round((height * blocks) / longSide));
     const small = await sharp(base.data).resize(bw, bh, { fit: 'fill' }).removeAlpha().raw().toBuffer();
-    dither(small, bw, bh, stage);
-    // ...then scale back up by a whole number so every block stays crisp.
-    const scale = Math.max(1, Math.round(outputSize / Math.max(bw, bh)));
+    if (stage.mono || stage.levels < 256) dither(small, bw, bh, stage);
     await sharp(small, { raw: { width: bw, height: bh, channels: 3 } })
-      .resize(bw * scale, bh * scale, { kernel: 'nearest' })
       .png({ compressionLevel: 9 })
       .toFile(stagePath(id, n + 1));
   }
 
-  await sharp(base.data).webp({ quality: 90 }).toFile(stagePath(id, MAX_GUESSES));
+  await sharp(base.data).webp({ quality: 90 }).toFile(stagePath(id, MAX_GUESSES + 1));
   await sharp(base.data)
     .resize(360, 360, { fit: 'inside' })
     .webp({ quality: 78 })

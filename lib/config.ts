@@ -20,15 +20,17 @@ export const DEFAULT_CATEGORIES = [
   'random',
 ];
 
-/** Five guesses, five image stages (four enhancement passes + the original). */
+/** Five guesses, five low-resolution stages. The untouched original is only shown once the game is over. */
 export const MAX_GUESSES = 5;
+/** Pseudo-stage number of the original image (revealed after the game ends). */
+export const FINAL_STAGE = MAX_GUESSES + 1;
 
 export type StageConfig = {
-  /** Number of "pixels" along the longer side of the image. */
+  /** Resolution of this stage: number of pixels along the longer side of the image. */
   blocks: number;
-  /** Colour levels per channel after dithering (2 = 1 bit per channel). */
+  /** Optional retro effect: colour levels per channel with dithering (256 = off). */
   levels: number;
-  /** Render as pure 1-bit monochrome. */
+  /** Optional retro effect: render as 1-bit monochrome. */
   mono: boolean;
 };
 
@@ -47,10 +49,11 @@ export const DEFAULT_CONFIG: Config = {
   pixelation: {
     outputSize: 960,
     stages: [
-      { blocks: 14, levels: 2, mono: true },
-      { blocks: 22, levels: 2, mono: false },
-      { blocks: 36, levels: 3, mono: false },
-      { blocks: 80, levels: 4, mono: false },
+      { blocks: 20, levels: 256, mono: false },
+      { blocks: 32, levels: 256, mono: false },
+      { blocks: 56, levels: 256, mono: false },
+      { blocks: 110, levels: 256, mono: false },
+      { blocks: 480, levels: 256, mono: false },
     ],
   },
 };
@@ -107,10 +110,10 @@ export function getConfig(): Config {
     pixelation: {
       outputSize: clampInt(raw?.pixelation?.outputSize, 320, 2400, d.pixelation.outputSize),
       stages:
-        Array.isArray(stages) && stages.length === MAX_GUESSES - 1
+        Array.isArray(stages) && stages.length === MAX_GUESSES
           ? stages.map((s, i) => ({
-              blocks: clampInt(s?.blocks, 2, 400, d.pixelation.stages[i].blocks),
-              levels: clampInt(s?.levels, 2, 256, d.pixelation.stages[i].levels),
+              blocks: clampInt(s?.blocks, 2, 1600, d.pixelation.stages[i].blocks),
+              levels: clampInt(s?.levels, 2, 256, 256),
               mono: Boolean(s?.mono),
             }))
           : d.pixelation.stages,

@@ -31,11 +31,11 @@ export default function ArchivePage() {
   }, []);
 
   return (
-    <div className="stack">
+    <div className="stack narrow">
       <div>
-        <h1 className="page-title">Case archive</h1>
+        <h1 className="page-title">Archive</h1>
         <p className="dim">
-          Replay any past case as practice. Practice games never change your streak or statistics.
+          Replay any past puzzle as practice. Practice games never change your streak or statistics.
         </p>
       </div>
       {error && <p className="notice error">{error}</p>}
@@ -44,9 +44,9 @@ export default function ArchivePage() {
         <div className="window">
           <div className="window-body empty">
             <h2>Archive empty</h2>
-            <p>Past daily cases will appear here from tomorrow.</p>
+            <p>Past daily puzzles will appear here from tomorrow.</p>
             <Link className="btn primary" href="/">
-              Today&apos;s case
+              Today&apos;s puzzle
             </Link>
           </div>
         </div>

@@ -65,10 +65,10 @@ export async function updateAsset(id: string, patch: Record<string, unknown>): P
   if ('stageBlocks' in patch) {
     const raw = patch.stageBlocks;
     if (raw == null) next.stageBlocks = null;
-    else if (Array.isArray(raw) && raw.length === MAX_GUESSES - 1) {
-      next.stageBlocks = raw.map((v) => clampInt(v, 2, 400, 0));
-      if (next.stageBlocks.some((v) => !v)) throw new AdminError(400, 'Pixel sizes must be numbers from 2 to 400.');
-    } else throw new AdminError(400, 'Provide one pixel size for each of the four passes.');
+    else if (Array.isArray(raw) && raw.length === MAX_GUESSES) {
+      next.stageBlocks = raw.map((v) => clampInt(v, 2, 1600, 0));
+      if (next.stageBlocks.some((v) => !v)) throw new AdminError(400, 'Resolutions must be numbers from 2 to 1600.');
+    } else throw new AdminError(400, 'Provide one resolution for each of the five stages.');
   }
   if ('status' in patch) {
     if (!['draft', 'approved', 'archived'].includes(patch.status as string)) {

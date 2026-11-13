@@ -5,7 +5,7 @@ import Game from '@/components/Game';
 export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <div className="stack" style={{ maxWidth: 788, margin: '0 auto' }}>
+    <div className="stack">
       <Link className="btn small" href={`/admin/asset/${id}`} style={{ alignSelf: 'flex-start' }}>
         ← Back to asset
       </Link>

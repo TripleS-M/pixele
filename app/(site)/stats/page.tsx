@@ -72,10 +72,10 @@ export default function StatsPage() {
   ];
 
   return (
-    <div className="stack">
+    <div className="stack narrow">
       <div>
         <h1 className="page-title">Operator record</h1>
-        <p className="dim">Daily cases only. Practice games are never counted.</p>
+        <p className="dim">Daily puzzles only. Practice games are never counted.</p>
       </div>
       {offline && <p className="notice">Offline — showing the last statistics saved in this browser.</p>}
 
@@ -108,7 +108,7 @@ export default function StatsPage() {
 
       {stats.recent.length > 0 && (
         <section className="stack" style={{ gap: 8 }}>
-          <h2 style={{ fontSize: 28 }}>Recent cases</h2>
+          <h2 style={{ fontSize: 28 }}>Recent puzzles</h2>
           <ul className="list">
             {stats.recent.map((r) => (
               <li key={r.date}>
@@ -129,15 +129,15 @@ export default function StatsPage() {
       )}
 
       {stats.played === 0 && (
-        <p className="notice">No completed daily cases yet. Solve today&apos;s case to start your record.</p>
+        <p className="notice">No completed daily puzzles yet. Solve today&apos;s puzzle to start your record.</p>
       )}
 
       <div className="row">
         <Link className="btn primary" href="/">
-          Today&apos;s case
+          Today&apos;s puzzle
         </Link>
         <Link className="btn" href="/archive">
-          Practise older cases
+          Open the archive
         </Link>
       </div>
     </div>

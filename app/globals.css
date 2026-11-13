@@ -425,33 +425,149 @@ p {
 }
 
 /* ==========================================================================
-   Game
+   Game — an old computer. The casing is beige plastic in both themes and the
+   CRT always glows amber. Everything is plain CSS (no WebGL) so it stays
+   smooth on low-end phones and laptops.
    ========================================================================== */
-.game {
+.rig {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  --pane-h: clamp(280px, 48vh, 520px);
+}
+.computer {
+  width: 100%;
+  padding: clamp(12px, 2.2vw, 28px) clamp(12px, 2.2vw, 28px) 0;
+  background: linear-gradient(180deg, #ded6be 0%, #cdc4aa 55%, #b9b095 100%);
+  border: 2px solid #8a826a;
+  border-radius: 26px 26px 14px 14px;
+  box-shadow:
+    inset 0 3px 0 #f3eedc,
+    inset 0 -8px 0 #a0977d,
+    inset 6px 0 0 -3px #e9e3cf,
+    inset -6px 0 0 -3px #a0977d;
+}
+.bezel {
+  padding: clamp(8px, 1.5vw, 18px);
+  background: #1d1a14;
+  border-radius: clamp(18px, 3vw, 34px);
+  box-shadow:
+    inset 0 0 0 3px #0b0906,
+    inset 0 10px 22px #000,
+    0 2px 0 #f3eedc;
 }
 
-.casebar {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-  letter-spacing: 0.08em;
+/* The tube. Bright centre + dark rounded edges make it read as bulging glass. */
+.crt {
+  --lit: #ffb000;
+  --unlit: #0a0804;
+  --fg: var(--lit);
+  --bg: var(--unlit);
+  --dim: #c28600;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--fg);
+  border-radius: clamp(18px, 3.4vw, 44px) / clamp(22px, 4vw, 54px);
+  background: radial-gradient(ellipse 75% 70% at 50% 46%, #241a08 0%, #120d05 55%, #040302 100%);
+  font-family: var(--font-display);
+  font-size: clamp(20px, 1.9vw, 26px);
+  line-height: 1.12;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  text-shadow: 0 0 7px rgba(255, 176, 0, 0.45);
 }
-.casebar h1 {
-  font-size: 30px;
+/* scanlines */
+.crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, 0.2) 2px 3px);
+}
+/* glass: vignette + reflection */
+.crt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 55% 32% at 28% 8%, rgba(255, 255, 255, 0.09), transparent 70%),
+    radial-gradient(ellipse 120% 115% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
+  box-shadow:
+    inset 0 0 46px 6px rgba(0, 0, 0, 0.7),
+    inset 0 0 6px 2px rgba(0, 0, 0, 0.9);
 }
 
-/* The mystery image is the centrepiece. */
-.viewport-frame {
-  border: var(--px) solid var(--fg);
-  box-shadow: 4px 4px 0 var(--fg);
-  background: var(--bg);
+.screen {
+  position: relative;
+  z-index: 1;
+  padding: clamp(20px, 3.2vw, 44px);
+  animation: crt-on 0.45s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes crt-on {
+  0% {
+    transform: scale(0.7, 0.01);
+    opacity: 0.2;
+  }
+  55% {
+    transform: scale(1, 0.02);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+.screen.boot {
+  min-height: calc(var(--pane-h) + clamp(40px, 6.4vw, 88px) + 30px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+}
+.boot-skip {
+  color: var(--dim);
+  font-size: 0.8em;
+}
+
+/* Image on the left, terminal on the right. Each half is tilted a few degrees
+   away from the viewer so the middle of the screen appears to bulge outwards. */
+.screen.play {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: clamp(16px, 2.6vw, 36px);
+  align-items: stretch;
+  perspective: 1500px;
+}
+.pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pane-image {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transform: rotateY(-5deg);
+  transform-origin: 100% 50%;
+}
+.pane-term {
+  height: calc(var(--pane-h) + 30px);
+  gap: 10px;
+  transform: rotateY(5deg);
+  transform-origin: 0 50%;
+}
+
+.viewport {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  outline: 2px solid var(--fg);
+  width: min(100%, calc(var(--pane-h) * var(--ratio, 1.333)));
+  max-width: 100%;
 }
 .viewport-pad {
   padding: 10px;
@@ -459,13 +575,6 @@ p {
   justify-content: center;
   background-image: conic-gradient(var(--dim) 25%, transparent 0);
   background-size: 4px 4px;
-}
-.viewport {
-  position: relative;
-  overflow: hidden;
-  background: var(--unlit);
-  outline: var(--px) solid var(--fg);
-  max-width: 100%;
 }
 .layer {
   position: absolute;
@@ -476,6 +585,7 @@ p {
   height: 100%;
   display: block;
   object-fit: fill;
+  /* Low-resolution stages are scaled up with hard pixel edges. */
   image-rendering: pixelated;
   user-select: none;
   -webkit-user-drag: none;
@@ -483,20 +593,11 @@ p {
 .layer.final img {
   image-rendering: auto;
 }
-/* 1-bit stages are drawn in the terminal's own two colours. */
 .layer.mono {
   background: var(--lit);
 }
 .layer.mono img {
   mix-blend-mode: multiply;
-}
-/* CRT scanlines sit over every pass except the final clean image. */
-.layer:not(.final)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(transparent 0 2px, var(--scanline) 2px 3px);
 }
 
 /* Enhancement pass: the sharper image is drawn in from the top, line by line. */
@@ -504,7 +605,7 @@ p {
   clip-path: inset(0 0 100% 0);
 }
 .layer.incoming.run {
-  animation: enhance 1.5s steps(30, end) forwards;
+  animation: enhance 1.4s steps(28, end) forwards;
 }
 @keyframes enhance {
   to {
@@ -518,8 +619,7 @@ p {
   top: 0;
   height: 6px;
   background: var(--lit);
-  box-shadow: 0 0 0 1px var(--unlit);
-  animation: scan 1.5s steps(30, end) forwards;
+  animation: scan 1.4s steps(28, end) forwards;
   pointer-events: none;
 }
 @keyframes scan {
@@ -529,277 +629,202 @@ p {
 }
 
 .readout {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  border-top: var(--px) solid var(--fg);
-  padding: 6px 10px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Five guesses = five enhancement passes */
-.passes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-}
-.pass {
-  border: var(--px) solid var(--fg);
-  padding: 5px 6px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+  justify-content: center;
+  gap: 22px;
+  font-size: 0.85em;
   color: var(--dim);
 }
-.pass b {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--fg);
-}
-.pass.miss {
-  background-image: repeating-conic-gradient(var(--dim) 0% 25%, transparent 0% 50%);
-  background-size: 4px 4px;
-}
-.pass.miss span,
-.pass.miss b {
-  background: var(--bg);
-  align-self: flex-start;
-  padding: 0 3px;
-  color: var(--fg);
-}
-.pass.hit {
-  background: var(--fg);
-  color: var(--bg);
-}
-.pass.hit b {
-  color: var(--bg);
-}
-.pass.current {
-  color: var(--fg);
-  box-shadow: 3px 3px 0 var(--fg);
-}
-.pass.idle {
-  border-style: dashed;
-}
 
-.hint-row {
-  display: flex;
-  align-items: stretch;
-}
-.btn.hint {
-  width: 100%;
-  border-style: dashed;
-  box-shadow: none;
-  background-image: conic-gradient(var(--dim) 25%, transparent 0);
-  background-size: 4px 4px;
-  padding: 0;
-}
-.btn.hint span {
-  background: var(--bg);
-  padding: 4px 10px;
-}
-.btn.hint {
-  white-space: normal;
-}
-.share .emoji {
-  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
-  letter-spacing: 2px;
-}
-.btn.hint:hover:not(:disabled) {
-  background-color: var(--bg);
-  color: var(--fg);
-  border-style: solid;
-}
-.btn.hint:hover:not(:disabled) span {
-  background: var(--fg);
-  color: var(--bg);
-}
-.hint-box {
-  width: 100%;
-  border: var(--px) solid var(--fg);
-  padding: 8px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.hint-box strong {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 26px;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 14px;
-}
-.log li {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  padding: 2px 0;
-}
-.log .g {
+/* Terminal */
+.term {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   overflow-wrap: anywhere;
-  text-transform: uppercase;
-}
-.log .dots {
-  flex: 1;
-  min-width: 12px;
-  border-bottom: var(--px) dotted var(--dim);
-  transform: translateY(-4px);
-}
-.log .verdict {
-  white-space: nowrap;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-.log .verdict.ok {
-  background: var(--fg);
-  color: var(--bg);
-  padding: 0 6px;
-}
-
-.status-line {
-  min-height: 22px;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.guess-form {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dim) transparent;
 }
-.prompt {
-  flex: 1;
+.term p {
+  margin: 0;
+}
+.term .soft,
+.console .soft {
+  color: var(--dim);
+}
+.entry-line {
   display: flex;
-  align-items: center;
-  border: var(--px) solid var(--fg);
-  padding-left: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.entry-text {
   min-width: 0;
 }
-.prompt:focus-within {
-  box-shadow: 3px 3px 0 var(--fg);
+/* MATCH / NO MATCH: a solid block of the terminal main colour */
+.chip {
+  display: inline-block;
+  background: var(--fg);
+  color: var(--bg);
+  padding: 0 8px;
+  white-space: nowrap;
+  text-shadow: none;
+  box-shadow: 0 0 10px rgba(255, 176, 0, 0.45);
 }
-.prompt > span {
-  font-family: var(--font-display);
-  font-size: 26px;
-  line-height: 1;
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--dim);
+}
+.term .credit {
+  font-size: 0.75em;
+  color: var(--dim);
+}
+.term-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.console {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 2px solid var(--fg);
+}
+.prompt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2em;
 }
 .prompt input {
   flex: 1;
   min-width: 0;
   font: inherit;
-  font-size: 16px; /* prevents iOS zoom */
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  text-shadow: inherit;
   color: var(--fg);
+  caret-color: var(--fg);
   background: transparent;
   border: 0;
+  border-bottom: 2px solid var(--dim);
+  border-radius: 0;
   outline: 0;
-  padding: 10px;
-  min-height: 46px;
-  text-transform: uppercase;
-  caret-color: var(--fg);
+  padding: 4px 2px;
+  min-height: 44px;
+}
+.prompt input:focus {
+  border-bottom-color: var(--fg);
 }
 .prompt input::placeholder {
   color: var(--dim);
   opacity: 1;
 }
+.tbtn {
+  font: inherit;
+  font-size: 0.9em;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-shadow: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 2px solid var(--fg);
+  border-radius: 0;
+  padding: 4px 12px;
+  min-height: 40px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tbtn:hover:not(:disabled),
+.tbtn.solid:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+  text-shadow: none;
+}
+.tbtn.solid:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+}
+.tbtn:disabled {
+  color: var(--dim);
+  border-color: var(--dim);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.tbtn.hint {
+  border-style: dashed;
+  align-self: flex-start;
+  text-align: left;
+  font-size: 0.8em;
+}
 
-/* Results */
-.result .window-body {
+/* Casing details */
+.chin {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 14px;
+  padding: 10px 6px 16px;
+  color: #6f6751;
 }
-.result h2 {
-  font-size: 44px;
-}
-.result .headline {
-  font-size: 16px;
-}
-.answer-line strong {
+.chin-brand {
   font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 34px;
+  font-size: 26px;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 0 #f3eedc;
+}
+.chin-model {
+  font-size: 10px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.facts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: var(--px) solid var(--fg);
-  margin: 0;
+.chin-vents {
+  flex: 1;
+  height: 14px;
+  min-width: 20px;
+  background-image: repeating-linear-gradient(90deg, #8a826a 0 3px, transparent 3px 8px);
+  opacity: 0.7;
 }
-.facts div {
-  padding: 8px 10px;
-  border-right: var(--px) solid var(--fg);
-  min-width: 0;
+.chin-led {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffb000;
+  box-shadow:
+    0 0 0 2px #7a735d,
+    0 0 10px 2px rgba(255, 176, 0, 0.8);
 }
-.facts div:last-child {
-  border-right: 0;
+.stand {
+  width: min(44%, 420px);
+  height: 22px;
+  background: linear-gradient(180deg, #8f876e, #b0a78c);
+  border: 2px solid #8a826a;
+  border-top: 0;
 }
-.facts dt {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-.facts dd {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 30px;
-  line-height: 1.05;
-}
-.share {
-  margin: 0;
-  border: var(--px) dashed var(--fg);
-  padding: 10px 12px;
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-.credit {
-  font-size: 12px;
-  color: var(--dim);
-  overflow-wrap: anywhere;
-}
-
-.banner {
-  border: var(--px) solid var(--fg);
-  padding: 6px 10px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background-image: conic-gradient(var(--dim) 25%, transparent 0);
-  background-size: 4px 4px;
-}
-.banner span {
-  background: var(--bg);
-  padding: 1px 6px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+.foot {
+  width: min(62%, 600px);
+  height: 14px;
+  background: #cdc4aa;
+  border: 2px solid #8a826a;
+  border-radius: 4px 4px 10px 10px;
+  box-shadow: inset 0 -4px 0 #a0977d;
 }
 
 .empty {
@@ -813,14 +838,6 @@ p {
 .empty h1,
 .empty h2 {
   font-size: 48px;
-}
-.static {
-  width: 100%;
-  max-width: 420px;
-  height: 120px;
-  border: var(--px) solid var(--fg);
-  background-image: repeating-conic-gradient(var(--fg) 0% 25%, transparent 0% 50%);
-  background-size: 4px 4px;
 }
 
 /* Dialog */
@@ -860,6 +877,13 @@ dialog::backdrop {
   padding: 4px 8px;
   text-align: left;
   font-weight: 400;
+}
+
+.narrow {
+  width: 100%;
+  max-width: 788px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ==========================================================================
@@ -1074,7 +1098,7 @@ dialog::backdrop {
 }
 .stage-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
   margin-top: 8px;
 }
@@ -1265,6 +1289,39 @@ dialog::backdrop {
 /* ==========================================================================
    Small screens
    ========================================================================== */
+@media (max-width: 860px) {
+  /* Portrait monitor: image on top, terminal underneath. */
+  .rig {
+    --pane-h: 44vh;
+  }
+  .screen.play {
+    grid-template-columns: minmax(0, 1fr);
+    perspective: 1100px;
+  }
+  .pane-image {
+    transform: rotateX(2.5deg);
+    transform-origin: 50% 100%;
+  }
+  .pane-term {
+    height: auto;
+    transform: rotateX(-2.5deg);
+    transform-origin: 50% 0;
+  }
+  .term {
+    max-height: 34vh;
+    min-height: 96px;
+  }
+  .screen.boot {
+    min-height: 62vh;
+  }
+  .chin-model {
+    display: none;
+  }
+  .stand {
+    height: 14px;
+  }
+}
+
 @media (max-width: 720px) {
   body {
     font-size: 14px;
@@ -1283,31 +1340,12 @@ dialog::backdrop {
   .main {
     padding-top: 14px;
   }
-  .viewport-pad {
-    padding: 6px;
-  }
-  .pass {
-    padding: 4px;
-    font-size: 10px;
-  }
-  .pass b {
-    font-size: 18px;
-  }
-  .pass .pts-label {
-    display: none;
-  }
   .tiles {
     grid-template-columns: repeat(2, 1fr);
   }
   .editor,
   .form-grid {
     grid-template-columns: 1fr;
-  }
-  .result h2 {
-    font-size: 36px;
-  }
-  .facts dd {
-    font-size: 24px;
   }
   .day {
     min-height: 64px;
@@ -1334,14 +1372,12 @@ dialog::backdrop {
     gap: 8px;
     padding: 10px 8px;
   }
-  .guess-form .btn {
-    padding: 9px 12px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .layer.incoming.run,
-  .scanbar {
+  .scanbar,
+  .screen {
     animation-duration: 1ms;
   }
   .cursor::after {

@@ -31,7 +31,7 @@ const toForm = (a: AdminAsset): Form => ({
   blocks: a.defaultBlocks.map((_, i) => (a.stageBlocks ? String(a.stageBlocks[i]) : '')),
 });
 
-const PASS_LABELS = ['Pass 1', 'Pass 2', 'Pass 3', 'Pass 4', 'Original'];
+const PASS_LABELS = ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5', 'Original'];
 
 export default function AssetEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -137,7 +137,7 @@ export default function AssetEditorPage() {
   };
 
   const image = (n: number) => `/api/admin/assets/${id}/image/${n}?v=${version}`;
-  const layer = (n: number) => `layer${asset.stageMono[n - 1] ? ' mono' : ''}${n === 5 ? ' final' : ''}`;
+  const layer = (n: number) => `layer${asset.stageMono[n - 1] ? ' mono' : ''}${n === 6 ? ' final' : ''}`;
 
   return (
     <div className="stack">
@@ -182,7 +182,8 @@ export default function AssetEditorPage() {
           <div className="window">
             <div className="titlebar">
               <span>
-                {PASS_LABELS[stage - 1]} of 5{stage === 1 ? ' — what players see first' : ''}
+                {PASS_LABELS[stage - 1]}
+                {stage === 1 ? ' — what players see first' : stage === 6 ? ' — shown only after the game' : ` — guess ${stage}`}
               </span>
             </div>
             <div className="viewport-pad">
@@ -192,15 +193,15 @@ export default function AssetEditorPage() {
               >
                 <div className={layer(stage)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image(stage)} alt={`Enhancement stage ${stage}`} />
+                  <img src={image(stage)} alt={PASS_LABELS[stage - 1]} />
                 </div>
               </div>
             </div>
           </div>
           <div>
-            <span className="label">All five stages</span>
+            <span className="label">Five stages + original</span>
             <div className="stage-strip">
-              {[1, 2, 3, 4, 5].map((n) => (
+              {[1, 2, 3, 4, 5, 6].map((n) => (
                 <button key={n} aria-pressed={stage === n} onClick={() => setStage(n)} title={PASS_LABELS[n - 1]}>
                   <em>{n}</em>
                   <span className={layer(n)}>
@@ -284,17 +285,17 @@ export default function AssetEditorPage() {
               <input value={form.licence} onChange={set('licence')} maxLength={160} placeholder="CC BY 4.0" />
             </label>
             <div className="field full">
-              <span>Pixel grid per pass (optional override for this image)</span>
+              <span>Resolution per stage (optional override for this image)</span>
               <div className="row" style={{ flexWrap: 'nowrap' }}>
                 {form.blocks.map((b, i) => (
                   <input
                     key={i}
                     type="number"
                     min={2}
-                    max={400}
+                    max={1600}
                     value={b}
                     placeholder={String(asset.defaultBlocks[i])}
-                    aria-label={`Pixels along the long side for pass ${i + 1}`}
+                    aria-label={`Pixels along the long side for stage ${i + 1}`}
                     onChange={(e) =>
                       setForm({ ...form, blocks: form.blocks.map((x, j) => (j === i ? e.target.value : x)) })
                     }
@@ -302,7 +303,7 @@ export default function AssetEditorPage() {
                 ))}
               </div>
               <small>
-                Pixels along the longer side for passes 1–4. Leave blank to use the global setting. Lower =
+                Pixels along the longer side for stages 1–5. Leave blank to use the global setting. Lower =
                 harder.
               </small>
             </div>

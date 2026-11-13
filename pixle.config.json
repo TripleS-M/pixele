@@ -8,10 +8,11 @@
   "pixelation": {
     "outputSize": 960,
     "stages": [
-      { "blocks": 14, "levels": 2, "mono": true },
-      { "blocks": 22, "levels": 2, "mono": false },
-      { "blocks": 36, "levels": 3, "mono": false },
-      { "blocks": 80, "levels": 4, "mono": false }
+      { "blocks": 20 },
+      { "blocks": 32 },
+      { "blocks": 56 },
+      { "blocks": 110 },
+      { "blocks": 480 }
     ]
   }
 }

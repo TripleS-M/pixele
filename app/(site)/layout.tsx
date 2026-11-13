@@ -5,9 +5,9 @@ import { getConfig } from '@/lib/config';
 export const dynamic = 'force-dynamic';
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  const { scoring, timezone } = getConfig();
+  const { scoring } = getConfig();
   return (
-    <Shell scoring={scoring} timezone={timezone}>
+    <Shell scoring={scoring}>
       {children}
     </Shell>
   );

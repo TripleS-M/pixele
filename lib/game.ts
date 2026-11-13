@@ -1,4 +1,4 @@
-import { MAX_GUESSES, getConfig } from './config';
+import { FINAL_STAGE, MAX_GUESSES, getConfig } from './config';
 import { all, get, getAsset, run, scheduledAssetId, type Asset } from './db';
 import { addDays, daysBetween, isDateString, secondsUntilTomorrow, today } from './dates';
 import { isCorrectGuess, normalizeAnswer } from './answers';
@@ -102,7 +102,7 @@ const parseGuesses = (play: Play): Guess[] => {
 
 /** Stage 1 is shown before the first guess; each wrong guess runs one more enhancement pass. */
 export function unlockedStage(play: Pick<Play, 'status' | 'guesses'>): number {
-  if (play.status !== 'playing') return MAX_GUESSES;
+  if (play.status !== 'playing') return FINAL_STAGE;
   const wrong = parseGuesses(play as Play).filter((x) => !x.correct).length;
   return Math.min(MAX_GUESSES, wrong + 1);
 }
@@ -128,10 +128,8 @@ function view(play: Play, target: Target) {
     guesses,
     maxGuesses: MAX_GUESSES,
     stage: unlockedStage(play),
-    stages: [
-      ...stages.map((s) => ({ blocks: s.blocks, levels: s.levels, mono: s.mono })),
-      { blocks: 0, levels: 256, mono: false },
-    ],
+    // One entry per guess, plus the original (blocks: 0) that is revealed at the end.
+    stages: [...stages.map((s) => ({ blocks: s.blocks, mono: s.mono })), { blocks: 0, mono: false }],
     imageBase: `/api/image/${play.id}`,
     imageVersion: asset.stageSig,
     width: asset.width,

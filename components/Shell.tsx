@@ -44,11 +44,9 @@ type Scoring = { points: number[]; hintPenalty: number };
 export default function Shell({
   children,
   scoring,
-  timezone,
 }: {
   children: React.ReactNode;
   scoring: Scoring;
-  timezone: string;
 }) {
   const pathname = usePathname();
   const manual = useRef<HTMLDialogElement>(null);
@@ -68,7 +66,7 @@ export default function Shell({
   const current = (href: string) => (pathname === href || pathname.startsWith(href + '/') ? 'page' : undefined);
 
   return (
-    <div className="shell">
+    <div className="shell wide">
       <header className="topbar">
         <Logo tag="IMAGE RECOVERY TERMINAL" />
         <nav className="nav" aria-label="Main">
@@ -91,8 +89,7 @@ export default function Shell({
       <main className="main">{children}</main>
 
       <footer className="footer">
-        <span>Pixle/OS 1.0 — one new case every day</span>
-        <span>New case at 00:00 {timezone.replace(/_/g, ' ')}</span>
+        <span>Pixle/OS 1.0 — one new image every day</span>
       </footer>
 
       <dialog ref={manual} aria-labelledby="manual-title">
@@ -107,10 +104,13 @@ export default function Shell({
           <ol>
             <li>Study the image and type what you think it shows.</li>
             <li>
-              A wrong guess makes the terminal run the next enhancement pass: more pixels, more colours, more
-              detail.
+              A wrong guess makes the terminal run the next enhancement pass: the image comes back at a higher
+              resolution.
             </li>
-            <li>You have {scoring.points.length} guesses. The final guess is made on the fully restored image.</li>
+            <li>
+              You have {scoring.points.length} guesses. Even the last pass is not perfectly sharp — the original
+              is only shown once the game is over.
+            </li>
             <li>
               Stuck? Request the <strong>theme hint</strong>. It never uses up a guess, but costs{' '}
               {scoring.hintPenalty} points.
@@ -135,7 +135,7 @@ export default function Shell({
             </tbody>
           </table>
           <p className="dim">
-            Everyone gets the same image each day. Past cases can be replayed in the archive as practice —
+            Everyone gets the same image each day. Past images can be replayed in the archive as practice —
             practice never affects your streak or statistics.
           </p>
           <form method="dialog" className="row">
