@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MonitorScreen from '@/components/monitor/MonitorScreen';
+import type { Line, ScreenView } from '@/components/monitor/painter';
 import type { GameState, GuessResult } from '@/lib/game';
 
 type Playable = Extract<GameState, { available: true }>;
@@ -18,14 +20,27 @@ const BOOT_LINES = [
 ];
 const BOOT_STEP_MS = 260;
 
-/** The old computer the whole game lives in. Pure CSS: no WebGL, so it runs on anything. */
-function Computer({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+/**
+ * The plain HTML/CSS computer. It is always in the page: when the 3D monitor is running it is
+ * visually hidden and serves as the real controls (text input, buttons) and the accessible
+ * version of the screen; when WebGL is not available it is simply shown instead.
+ */
+function Computer({
+  children,
+  onClick,
+  overlay,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  overlay?: React.ReactNode;
+}) {
   return (
     <div className="rig">
       <div className="computer">
         <div className="bezel">
           <div className="crt" onClick={onClick}>
             {children}
+            {overlay}
           </div>
         </div>
         <div className="chin" aria-hidden="true">
@@ -53,6 +68,12 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
   const [shown, setShown] = useState(0);
   const [incoming, setIncoming] = useState<number | null>(null);
   const [incomingReady, setIncomingReady] = useState(false);
+  // How the computer is drawn: the 3D monitor, or plain CSS when WebGL is not available.
+  const [renderer, setRenderer] = useState<'pending' | '3d' | 'css'>('pending');
+  const [portrait, setPortrait] = useState<boolean | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [matchFlash, setMatchFlash] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -82,9 +103,34 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
     }
   }, [gameKey, apply]);
 
+  // One request at a time: two first-visit requests at once would each be given a
+  // different player cookie, and the picture would then be refused.
+  const loading = useRef<{ key: string; done: Promise<void> } | null>(null);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (loading.current?.key === gameKey) return;
+    const entry = { key: gameKey, done: load() };
+    loading.current = entry;
+    entry.done.finally(() => {
+      if (loading.current === entry) loading.current = null;
+    });
+  }, [load, gameKey]);
+
+  // Narrow screens get a tall monitor with the picture above the terminal.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 700px)');
+    const update = () => setPortrait(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // With a keyboard and mouse, typing should work straight away.
+  const playing = state?.available === true && state.status === 'playing' && bootStep < 0;
+  useEffect(() => {
+    if (renderer === '3d' && playing && window.matchMedia('(pointer: fine)').matches) {
+      input.current?.focus({ preventScroll: true });
+    }
+  }, [renderer, playing]);
 
   // Boot-up text, one line at a time. Skipped for people who prefer reduced motion.
   useEffect(() => {
@@ -100,7 +146,11 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
   // Any key skips the boot sequence.
   useEffect(() => {
     if (bootStep < 0) return;
-    const skip = () => setBootStep(-1);
+    const skip = (e: KeyboardEvent) => {
+      // Swallow the key so it is not also typed into the guess box.
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'Tab') e.preventDefault();
+      setBootStep(-1);
+    };
     window.addEventListener('keydown', skip);
     return () => window.removeEventListener('keydown', skip);
   }, [bootStep]);
@@ -139,12 +189,38 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
     });
   };
 
+  // A click on the 3D screen: press the control under it, otherwise start typing.
+  const pick = (id: string | null) => {
+    if (id) {
+      root.current?.querySelector<HTMLElement>(`[data-hit="${id}"]`)?.click();
+      if (id !== 'submit') return;
+    }
+    if (bootStep >= 0) setBootStep(-1);
+    else input.current?.focus();
+  };
+
+  const common = { focus: focusId, flash: matchFlash };
+  let view: ScreenView;
+  let content: React.ReactNode;
+  let overlay: React.ReactNode = null;
+  let onScreenClick: (() => void) | undefined;
+
   // ---------------------------------------------------------------- boot / loading / errors
 
   if (bootStep >= 0 || (!state && !error)) {
     const lines = bootStep >= 0 ? BOOT_LINES.slice(0, bootStep) : ['ACQUIRING SIGNAL'];
-    return (
-      <Computer onClick={bootStep >= 0 ? () => setBootStep(-1) : undefined}>
+    view = {
+      ...common,
+      kind: 'lines',
+      session: 'boot',
+      lines: [
+        ...lines.map((line, i): Line => ({ segs: [line], cursor: i === lines.length - 1 })),
+        ...(lines.length === 0 ? [{ segs: [], cursor: true }] : []),
+      ],
+      footer: bootStep >= 0 ? 'Press any key to skip' : undefined,
+    };
+    onScreenClick = bootStep >= 0 ? () => setBootStep(-1) : undefined;
+    content = (
         <div className="screen boot" role="status" aria-label="Starting up">
           <div className="term">
             {lines.map((line, i) => (
@@ -156,36 +232,50 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
           </div>
           {bootStep >= 0 && <p className="boot-skip">Press any key to skip</p>}
         </div>
-      </Computer>
     );
-  }
-
-  if (error) {
-    return (
-      <Computer>
+  } else if (error) {
+    view = {
+      ...common,
+      kind: 'lines',
+      session: 'error',
+      lines: [
+        { segs: ['*** SYSTEM ERROR ***'] },
+        { segs: [error] },
+        { segs: [{ btn: 'Retry', id: 'retry' }, { btn: 'Daily puzzle', id: 'home' }], gap: true },
+      ],
+    };
+    content = (
         <div className="screen boot">
           <div className="term">
             <p>*** SYSTEM ERROR ***</p>
             <p>{error}</p>
             <p className="term-actions">
-              <button className="tbtn" onClick={load}>
+              <button className="tbtn" data-hit="retry" onClick={load}>
                 Retry
               </button>
-              <Link className="tbtn" href="/">
+              <Link className="tbtn" data-hit="home" href="/">
                 Daily puzzle
               </Link>
             </p>
           </div>
         </div>
-      </Computer>
     );
-  }
-
-  if (!state) return null;
-
-  if (!state.available) {
-    return (
-      <Computer>
+  } else if (!state) {
+    return null;
+  } else if (!state.available) {
+    view = {
+      ...common,
+      kind: 'lines',
+      session: 'none',
+      lines: [
+        { segs: ['SCANNING FOR SIGNAL ........'] },
+        { segs: [{ chip: 'NO SIGNAL' }] },
+        { segs: ['NO IMAGE HAS BEEN TRANSMITTED TODAY.'] },
+        { segs: ['CHECK BACK TOMORROW'], cursor: true },
+        ...(state.hasArchive ? [{ segs: [{ btn: 'Open the archive', id: 'archive' }], gap: true }] : []),
+      ],
+    };
+    content = (
         <div className="screen boot">
           <div className="term">
             <p>SCANNING FOR SIGNAL ........</p>
@@ -196,17 +286,15 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
             <p className="cursor">CHECK BACK TOMORROW</p>
             {state.hasArchive && (
               <p className="term-actions">
-                <Link className="tbtn" href="/archive">
+                <Link className="tbtn" data-hit="archive" href="/archive">
                   Open the archive
                 </Link>
               </p>
             )}
           </div>
         </div>
-      </Computer>
     );
-  }
-
+  } else {
   // ---------------------------------------------------------------- the game
 
   const s: Playable = state;
@@ -229,6 +317,8 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
     apply(data.state, true);
     switch (data.result) {
       case 'correct':
+        setMatchFlash((n) => n + 1);
+      // falls through
       case 'incorrect':
         setGuess('');
         setMessage('');
@@ -265,8 +355,75 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
     }
   };
 
-  return (
-    <Computer>
+  const hasCredit = !!s.credit && !!(s.credit.creator || s.credit.licence || s.credit.sourceUrl);
+  const hasSource = !!s.credit?.sourceUrl && /^https?:\/\//.test(s.credit.sourceUrl);
+  const lines: Line[] = [{ segs: ['IMAGE RECOVERY TERMINAL'] }];
+  if (s.mode === 'practice') lines.push({ segs: [`PRACTICE MODE. ARCHIVE ${s.date}. NOT COUNTED.`], soft: true });
+  if (s.mode === 'preview') lines.push({ segs: ['ADMIN PREVIEW. NOTHING IS RECORDED.'], soft: true });
+  lines.push({
+    segs: [`UNKNOWN SUBJECT. IDENTIFY IT IN ${s.maxGuesses} GUESSES. EACH MISS ENHANCES THE IMAGE.`],
+    soft: true,
+  });
+  s.guesses.forEach((g, i) => {
+    lines.push({ segs: [`> ${g.text}`, { chip: g.correct ? 'MATCH' : 'NO MATCH' }], gap: i === 0 });
+    if (!g.correct && i < s.maxGuesses - 1) {
+      lines.push({ segs: [`ENHANCING IMAGE ... PASS ${i + 2}/${s.maxGuesses}`], soft: true });
+    }
+  });
+  if (s.hintUsed) lines.push({ segs: ['THEME HINT:', { chip: s.hint ?? '' }, { soft: `(-${s.hintPenalty} PTS)` }], gap: true });
+  if (message) lines.push({ segs: [message] });
+  if (finished) {
+    lines.push(
+      { segs: [s.status === 'won' ? '*** SUBJECT IDENTIFIED ***' : '*** OUT OF GUESSES ***'], gap: true },
+      { segs: ['ANSWER:', { chip: s.answer ?? '' }] },
+      {
+        segs: [
+          s.status === 'won'
+            ? `SOLVED IN ${s.guesses.length}/${s.maxGuesses} GUESSES`
+            : `NOT SOLVED IN ${s.maxGuesses} GUESSES`,
+        ],
+      },
+      { segs: [`SCORE ${s.score}/${s.maxScore} · HINTS USED ${s.hintUsed ? 1 : 0}`] },
+    );
+    if (s.mode !== 'daily') lines.push({ segs: [{ btn: 'Replay', id: 'replay' }], gap: true });
+    if (hasCredit) {
+      lines.push({
+        segs: [
+          { soft: `IMAGE: ${[s.credit?.creator, s.credit?.licence].filter(Boolean).join(' · ')}` },
+          ...(hasSource ? [{ btn: 'Source', id: 'source' }] : []),
+        ],
+        gap: true,
+      });
+    }
+  }
+  const paintStage = viewStage || s.stage;
+  view = {
+    ...common,
+    kind: 'play',
+    session: s.imageBase,
+    image: { url: src(paintStage), stage: paintStage, aspect: s.width / s.height, smooth: paintStage > s.maxGuesses },
+    readout: [
+      original ? 'ORIGINAL IMAGE' : `ENHANCE PASS ${paintStage}/${s.maxGuesses}`,
+      original ? '' : `RES ${s.stages[paintStage - 1]?.blocks}PX`,
+    ],
+    lines,
+    console: finished
+      ? null
+      : {
+          info: `GUESS ${guessNumber}/${s.maxGuesses} · WORTH ${worth} PTS`,
+          text: guess,
+          placeholder: 'WHAT IS IT?',
+          typing: focusId === 'input',
+          hint: s.hintUsed ? null : `? Theme hint (-${s.hintPenalty} pts, no guess used)`,
+        },
+  };
+  overlay = matchFlash > 0 && (
+    <div key={matchFlash} className="match-flash" aria-hidden="true">
+      <span>MATCH</span>
+    </div>
+  );
+
+  content = (
       <section className="screen play" aria-label="Pixle puzzle">
         <div className="pane pane-image">
           <div
@@ -360,7 +517,7 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
                 </p>
                 {s.mode !== 'daily' && (
                   <p className="term-actions">
-                    <button className="tbtn" onClick={replay} disabled={busy}>
+                    <button className="tbtn" data-hit="replay" onClick={replay} disabled={busy}>
                       Replay
                     </button>
                   </p>
@@ -371,7 +528,7 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
                     {s.credit.sourceUrl && /^https?:\/\//.test(s.credit.sourceUrl) && (
                       <>
                         {' · '}
-                        <a href={s.credit.sourceUrl} target="_blank" rel="noreferrer noopener">
+                        <a data-hit="source" href={s.credit.sourceUrl} target="_blank" rel="noreferrer noopener">
                           SOURCE
                         </a>
                       </>
@@ -391,6 +548,7 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
                 <span aria-hidden="true">&gt;</span>
                 <input
                   ref={input}
+                  data-hit="input"
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
                   placeholder="WHAT IS IT?"
@@ -402,12 +560,12 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
                   spellCheck={false}
                   enterKeyHint="send"
                 />
-                <button className="tbtn solid" disabled={busy || !guess.trim()}>
+                <button className="tbtn solid" data-hit="submit" disabled={busy || !guess.trim()}>
                   Enter
                 </button>
               </form>
               {!s.hintUsed && (
-                <button type="button" className="tbtn hint" onClick={requestHint} disabled={busy}>
+                <button type="button" className="tbtn hint" data-hit="hint" onClick={requestHint} disabled={busy}>
                   ? Theme hint (-{s.hintPenalty} pts, no guess used)
                 </button>
               )}
@@ -415,6 +573,70 @@ export default function Game({ gameKey, boot = false }: { gameKey: string; boot?
           )}
         </div>
       </section>
-    </Computer>
+  );
+  }
+
+  return (
+    <GameFrame
+      view={view}
+      renderer={renderer}
+      portrait={portrait}
+      rootRef={root}
+      onPick={pick}
+      onRenderer={setRenderer}
+      onFocusId={setFocusId}
+    >
+      <Computer onClick={onScreenClick} overlay={overlay}>
+        {content}
+      </Computer>
+    </GameFrame>
+  );
+}
+
+/** Puts the 3D monitor in front of the HTML computer (or shows the HTML one when there is no WebGL). */
+function GameFrame({
+  view,
+  renderer,
+  portrait,
+  rootRef,
+  onPick,
+  onRenderer,
+  onFocusId,
+  children,
+}: {
+  view: ScreenView;
+  renderer: 'pending' | '3d' | 'css';
+  portrait: boolean | null;
+  rootRef: React.RefObject<HTMLDivElement | null>;
+  onPick: (id: string | null) => void;
+  onRenderer: (r: '3d' | 'css') => void;
+  onFocusId: (id: string | null) => void;
+  children: React.ReactNode;
+}) {
+  // Only hand the painter a new object when something on screen really changed.
+  const key = JSON.stringify(view);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stable = useMemo(() => view, [key]);
+  const css = renderer === 'css';
+  return (
+    <div ref={rootRef} className={css ? undefined : `rig3d${portrait ? ' portrait' : ''}`}>
+      {!css && portrait !== null && (
+        <MonitorScreen
+          key={portrait ? 'p' : 'l'}
+          view={stable}
+          portrait={portrait}
+          onPick={onPick}
+          onReady={() => onRenderer('3d')}
+          onFail={() => onRenderer('css')}
+        />
+      )}
+      <div
+        className={css ? undefined : 'rig-dom'}
+        onFocus={(e) => onFocusId((e.target as HTMLElement).dataset.hit ?? null)}
+        onBlur={() => onFocusId(null)}
+      >
+        {children}
+      </div>
+    </div>
   );
 }

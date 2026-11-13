@@ -1384,3 +1384,60 @@ dialog::backdrop {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   3D monitor (components/monitor). The HTML computer stays in the page
+   underneath as the real controls; it is only visually hidden.
+   ========================================================================== */
+.rig3d {
+  position: relative;
+  width: 100%;
+  height: clamp(520px, calc(100dvh - 96px), 1200px);
+}
+.rig3d.portrait {
+  height: auto;
+  aspect-ratio: 3.65 / 5.15;
+  margin-inline: -8px;
+  width: calc(100% + 16px);
+}
+.monitor-host {
+  position: absolute;
+  inset: 0;
+  touch-action: manipulation;
+}
+.rig-dom {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+.rig-dom input {
+  font-size: 16px; /* stops phones zooming the page when the keyboard opens */
+}
+
+/* MATCH box for the HTML computer (the 3D screen paints its own). */
+.match-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: match-flash 1.82s steps(1, end) forwards;
+}
+.match-flash span {
+  padding: 0.1em 0.5em;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 4em;
+  outline: 6px solid var(--bg);
+}
+@keyframes match-flash {
+  0%, 28.6%, 57.2%, 85.8% { opacity: 1; }
+  14.3%, 42.9%, 71.5%, 100% { opacity: 0; }
+}
