@@ -1,0 +1,10 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.env.local
+
+# Generated at runtime (rebuilt from the asset library)
+storage/
+# Puzzle database (metadata, schedule, plays). Back this up; remove this line to commit it.
+data/

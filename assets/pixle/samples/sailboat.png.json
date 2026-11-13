@@ -1,0 +1,16 @@
+{
+  "answer": "Sailboat",
+  "accepted": [
+    "boat",
+    "sailing boat",
+    "yacht",
+    "sail boat",
+    "ship"
+  ],
+  "theme": "Vehicles",
+  "hint": "Travels without an engine",
+  "difficulty": "easy",
+  "creator": "Pixle sample artwork",
+  "licence": "CC0 / public domain",
+  "sourceUrl": ""
+}

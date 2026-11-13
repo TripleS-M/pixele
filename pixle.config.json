@@ -1,0 +1,17 @@
+{
+  "timezone": "Australia/Melbourne",
+  "launchDate": null,
+  "scoring": {
+    "points": [500, 400, 300, 200, 100],
+    "hintPenalty": 50
+  },
+  "pixelation": {
+    "outputSize": 960,
+    "stages": [
+      { "blocks": 14, "levels": 2, "mono": true },
+      { "blocks": 22, "levels": 2, "mono": false },
+      { "blocks": 36, "levels": 3, "mono": false },
+      { "blocks": 80, "levels": 4, "mono": false }
+    ]
+  }
+}
